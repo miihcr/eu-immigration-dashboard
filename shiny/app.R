@@ -9,6 +9,9 @@ library(scales)
 eu_data <- readRDS("../data/eu_immigration_panel.rds")
 countries <- readRDS("../data/country_labels.rds")
 
+# keep only years with non-missing immigration
+valid_years <- eu_data$year[!is.na(eu_data$immigrants)]
+
 # Country choices for dropdown
 country_choices <- c("All", sort(unname(countries)))
 
@@ -62,9 +65,9 @@ ui <- fluidPage(
       sliderInput(
         "year_map",
         "Select Year:",
-        min = min(eu_data$year, na.rm = TRUE),
-        max = max(eu_data$year, na.rm = TRUE),
-        value = max(eu_data$year, na.rm = TRUE),
+        min   = min(valid_years, na.rm = TRUE),
+        max   = max(valid_years, na.rm = TRUE),
+        value = max(valid_years, na.rm = TRUE),
         step = 1,
         sep = ""
       ),
