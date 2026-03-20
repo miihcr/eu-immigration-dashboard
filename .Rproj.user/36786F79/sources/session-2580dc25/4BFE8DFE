@@ -3,7 +3,7 @@
     "path": "C:/Users/milen/Desktop/Projects/eu-immigration-dashboard/data/01_download_eurostat_data.R",
     "project_path": "data/01_download_eurostat_data.R",
     "type": "r_source",
-    "hash": "1602108168",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1774004084246.0,
@@ -13,8 +13,8 @@
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "102,0",
-        "scrollLine": "38"
+        "cursorPosition": "95,0",
+        "scrollLine": "77"
     },
     "folds": "",
     "lastKnownWriteTime": 1774004989,
