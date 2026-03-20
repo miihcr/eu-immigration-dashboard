@@ -1,0 +1,224 @@
+# shiny/app.R
+
+library(shiny)
+library(tidyverse)
+library(sf)
+library(leaflet)
+library(scales)
+
+eu_data <- readRDS("../data/eu_immigration_panel.rds")
+countries <- readRDS("../data/country_labels.rds")
+
+# Country choices for dropdown
+country_choices <- c("All", sort(unname(countries)))
+
+# Global bins for absolute counts
+bins_abs <- c(
+  0, 10000, 50000, 100000, 200000, 500000, 1000000, 1600000
+)
+
+labels_abs <- c(
+  "0 – 10,000",
+  "10,000 – 50,000",
+  "50,000 – 100,000",
+  "100,000 – 200,000",
+  "200,000 – 500,000",
+  "500,000 – 1,000,000",
+  "> 1,000,000"
+)
+
+# Global breaks for % (based on all years)
+breaks_pct <- quantile(
+  eu_data$immigration_pct,
+  probs = seq(0, 1, length.out = 6),
+  na.rm = TRUE
+)
+
+labels_pct <- c(
+  paste0("< ", round(breaks_pct[2], 2)),
+  paste0(round(breaks_pct[2], 2), "–", round(breaks_pct[3], 2)),
+  paste0(round(breaks_pct[3], 2), "–", round(breaks_pct[4], 2)),
+  paste0(round(breaks_pct[4], 2), "–", round(breaks_pct[5], 2)),
+  paste0("≥ ", round(breaks_pct[5], 2))
+)
+
+# UI -----------------------------------------------------------------------
+
+ui <- fluidPage(
+  titlePanel("Immigration Dashboard"),
+  
+  tabsetPanel(
+    
+    tabPanel(
+      "Time Series",
+      br(),
+      selectInput("country", "Country", choices = country_choices),
+      uiOutput("plot_ui")
+    ),
+    
+    tabPanel(
+      "Maps",
+      br(),
+      sliderInput(
+        "year_map",
+        "Select Year:",
+        min = min(eu_data$year, na.rm = TRUE),
+        max = max(eu_data$year, na.rm = TRUE),
+        value = max(eu_data$year, na.rm = TRUE),
+        step = 1,
+        sep = ""
+      ),
+      radioButtons(
+        "map_type",
+        "Display:",
+        choices = c("Absolute number" = "abs",
+                    "Per capita (%)" = "pct"),
+        inline = TRUE
+      ),
+      leafletOutput("map", height = "700px")
+    )
+  )
+)
+
+
+# Server -------------------------------------------------------------------
+
+server <- function(input, output) {
+  
+  # Dynamic sizing for time series plot
+  output$plot_ui <- renderUI({
+    if (input$country == "All") {
+      plotOutput("timeseries", height = "800px", width = "100%")
+    } else {
+      div(
+        style = "max-width: 900px; margin: 0 auto;",
+        plotOutput("timeseries", height = "700px", width = "100%")
+      )
+    }
+  })
+  
+  # Time series plot
+  output$timeseries <- renderPlot({
+    df <- eu_data |>
+      st_drop_geometry()
+    
+    if (input$country != "All") {
+      df <- df |>
+        filter(country == input$country)
+    }
+    
+    plot_title <- if (input$country == "All") {
+      "Immigration trends in European countries"
+    } else {
+      paste("Immigration trends in", input$country)
+    }
+    
+    p <- ggplot(df, aes(x = year, y = immigrants)) +
+      geom_line(aes(group = id)) +
+      scale_y_continuous(labels = scales::comma) +
+      scale_x_continuous(breaks = sort(unique(df$year))) +
+      labs(
+        title = plot_title,
+        x = "Year",
+        y = "Number of immigrants"
+      ) +
+      theme_bw(base_size = 16)
+    
+    if (input$country == "All") {
+      p <- p + facet_wrap(~ country, scales = "free_y", ncol = 5)
+    }
+    
+    p
+  })
+  
+  # Map data for selected year (transform to WGS84)
+  map_data <- reactive({
+    eu_data |>
+      filter(year == input$year_map) |>
+      st_transform(4326)
+  })
+  
+  # Map rendering
+  output$map <- renderLeaflet({
+    df <- map_data()
+    
+    if (input$map_type == "abs") {
+      
+      pal <- colorBin(
+        palette = "YlOrBr",
+        domain = df$immigrants,
+        bins = bins_abs,
+        na.color = "#cccccc"
+      )
+      
+      legend_title <- paste0("Number of immigrants – ", input$year_map)
+      values_var <- df$immigrants
+      legend_labels <- labels_abs
+      
+      hover_labels <- lapply(seq_len(nrow(df)), function(i) {
+        htmltools::HTML(paste0(
+          "<b>", df$country[i], "</b><br>",
+          "Number of immigrants: ",
+          ifelse(
+            is.na(df$immigrants[i]),
+            "No data available",
+            scales::comma(df$immigrants[i])
+          )
+        ))
+      })
+      
+    } else {
+      
+      pal <- colorBin(
+        palette = "YlOrBr",
+        domain = df$immigration_pct,
+        bins = breaks_pct,
+        na.color = "#cccccc"
+      )
+      
+      legend_title <- paste0("Immigration (% of population) – ", input$year_map)
+      values_var <- df$immigration_pct
+      legend_labels <- labels_pct
+      
+      hover_labels <- lapply(seq_len(nrow(df)), function(i) {
+        htmltools::HTML(paste0(
+          "<b>", df$country[i], "</b><br>",
+          "Immigration rate: ",
+          ifelse(
+            is.na(df$immigration_pct[i]),
+            "No data available",
+            paste0(round(df$immigration_pct[i], 2), "%")
+          )
+        ))
+      })
+    }
+    
+    leaflet(df) |>
+      addTiles() |>
+      setView(lng = 10, lat = 50, zoom = 4) |>
+      addPolygons(
+        fillColor = pal(values_var),
+        fillOpacity = 0.8,
+        color = "white",
+        weight = 1,
+        label = hover_labels,
+        highlightOptions = highlightOptions(
+          weight = 2,
+          color = "#333",
+          fillOpacity = 1,
+          bringToFront = TRUE
+        )
+      ) |>
+      addLegend(
+        pal = pal,
+        values = values_var,
+        title = legend_title,
+        opacity = 1,
+        labFormat = function(type, cuts, p) {
+          legend_labels[seq_len(length(cuts) - 1)]
+        }
+      )
+  })
+}
+
+shinyApp(ui = ui, server = server)
