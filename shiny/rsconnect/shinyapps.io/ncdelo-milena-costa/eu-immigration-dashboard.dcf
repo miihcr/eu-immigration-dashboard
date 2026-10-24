@@ -1,0 +1,10 @@
+name: eu-immigration-dashboard
+title:
+username: ncdelo-milena-costa
+account: ncdelo-milena-costa
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 18267453
+bundleId: 12733226
+url: https://ncdelo-milena-costa.shinyapps.io/eu-immigration-dashboard/
+version: 1

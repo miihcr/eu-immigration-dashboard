@@ -1,3 +1,0 @@
-dir.create("R")
-dir.create("shiny")
-file.create("README.md")

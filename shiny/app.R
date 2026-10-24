@@ -6,8 +6,8 @@ library(sf)
 library(leaflet)
 library(scales)
 
-eu_data <- readRDS("../data/eu_immigration_panel.rds")
-countries <- readRDS("../data/country_labels.rds")
+eu_data <- readRDS("eu_immigration_panel.rds")
+countries <- readRDS("country_labels.rds")
 
 # keep only years with non-missing immigration
 valid_years <- eu_data |>
@@ -83,7 +83,7 @@ ui <- fluidPage(
                     "Per capita (%)" = "pct"),
         inline = TRUE
       ),
-      leafletOutput("map", height = "700px")
+      leafletOutput("map", height = "400px")
     )
   )
 )
@@ -100,7 +100,7 @@ server <- function(input, output) {
     } else {
       div(
         style = "max-width: 900px; margin: 0 auto;",
-        plotOutput("timeseries", height = "700px", width = "100%")
+        plotOutput("timeseries", height = "400px", width = "100%")
       )
     }
   })
@@ -124,13 +124,14 @@ server <- function(input, output) {
     p <- ggplot(df, aes(x = year, y = immigrants)) +
       geom_line(aes(group = id)) +
       scale_y_continuous(labels = scales::comma) +
-      scale_x_continuous(breaks = sort(unique(df$year))) +
+      scale_x_continuous(breaks = scales::breaks_pretty(n = 4)) +
       labs(
         title = plot_title,
         x = "Year",
         y = "Number of immigrants"
       ) +
-      theme_bw(base_size = 16)
+      theme_bw(base_size = 14) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
     
     if (input$country == "All") {
       p <- p + facet_wrap(~ country, scales = "free_y", ncol = 5)
